@@ -1,6 +1,6 @@
 """
 AESO Data Merge Pipeline
-Merges pool-price/demand data with CSD hourly generation (wind + solar).
+Merges pool-price/demand data with CSD hourly generation (all fuel types).
 Outputs: aeso_merged_2020_2025.csv
 """
 
@@ -10,10 +10,24 @@ import os
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR     = os.path.dirname(os.path.abspath(__file__))
-DATASETS_DIR   = os.path.join(SCRIPT_DIR, 'datasets')
+DATASETS_DIR   = os.path.join(SCRIPT_DIR, 'CSVs')
 POOL_PRICE_CSV = os.path.join(DATASETS_DIR, 'Hourly_Metered_Volumes_and_Pool_Price_and_AIL_2020-Jul2025.csv')
 CSD_PATTERN    = os.path.join(DATASETS_DIR, 'CSD Generation (Hourly)*.csv')
 OUTPUT_CSV     = os.path.join(SCRIPT_DIR, 'aeso_merged_2020_2025.csv')
+
+# Valid fuel types and their output column names
+FUEL_TYPE_COLS = {
+    'COAL':           'coal_total',
+    'DUAL FUEL':      'dual_fuel_total',
+    'ENERGY STORAGE': 'energy_storage_total',
+    'GAS':            'gas_total',
+    'HYDRO':          'hydro_total',
+    'OTHER':          'other_total',
+    'SOLAR':          'solar_total',
+    'WIND':           'wind_total',
+}
+# System capability column names — same keys, derived from volume names
+FUEL_CAP_COLS = {ft: name.replace('_total', '_system_capability') for ft, name in FUEL_TYPE_COLS.items()}
 
 # ── 1. Load Dataset 1: Pool Price & Demand ─────────────────────────────────
 print("Loading pool price & demand data...")
@@ -34,7 +48,7 @@ df_price.rename(columns={'Date_Begin_Local': 'datetime'}, inplace=True)
 df_price['datetime'] = df_price['datetime'].dt.floor('h')
 print(f"  Pool price rows: {len(df_price):,}")
 
-# ── 2. Load & Aggregate Dataset 2: CSD Generation (Wind & Solar) ───────────
+# ── 2. Load & Aggregate Dataset 2: CSD Generation (all fuel types) ─────────
 print("\nLoading CSD generation files...")
 csd_files = sorted(glob.glob(CSD_PATTERN))
 print(f"  Found {len(csd_files)} CSD files")
@@ -43,34 +57,39 @@ chunks = []
 for fpath in csd_files:
     df = pd.read_csv(
         fpath,
-        usecols=['Date (MPT)', 'Fuel Type', 'Volume'],
+        usecols=['Date (MPT)', 'Fuel Type', 'Volume', 'System Capability'],
         parse_dates=['Date (MPT)'],
     )
-    df = df[df['Fuel Type'].isin(['WIND', 'SOLAR'])]
+    df = df[df['Fuel Type'].isin(FUEL_TYPE_COLS)]
     chunks.append(df)
     print(f"  {os.path.basename(fpath):50s}  rows: {len(df):>8,}")
 
 df_csd_raw = pd.concat(chunks, ignore_index=True)
-print(f"\n  Total WIND+SOLAR rows: {len(df_csd_raw):,}")
+print(f"\n  Total rows (all fuel types): {len(df_csd_raw):,}")
 
-# Rename, floor to hour, pivot and sum
+# Rename, floor to hour
 df_csd_raw.rename(columns={'Date (MPT)': 'datetime'}, inplace=True)
 df_csd_raw['datetime'] = df_csd_raw['datetime'].dt.floor('h')
 
-df_csd = (
+# Single groupby pass — aggregate Volume and System Capability together
+df_agg = (
     df_csd_raw
-    .groupby(['datetime', 'Fuel Type'])['Volume']
+    .groupby(['datetime', 'Fuel Type'])[['Volume', 'System Capability']]
     .sum()
     .unstack('Fuel Type')
-    .rename(columns={'WIND': 'wind_total', 'SOLAR': 'solar_total'})
-    .reset_index()
 )
 
-for col in ['wind_total', 'solar_total']:
+# Split the two metric levels, rename columns, then join into one flat DataFrame
+vol_df = df_agg['Volume'].rename(columns=FUEL_TYPE_COLS)
+cap_df = df_agg['System Capability'].rename(columns=FUEL_CAP_COLS)
+df_csd = vol_df.join(cap_df).reset_index()
+
+# Ensure every expected column exists (fills 0 for types absent in early years)
+for col in list(FUEL_TYPE_COLS.values()) + list(FUEL_CAP_COLS.values()):
     if col not in df_csd.columns:
         df_csd[col] = 0.0
 
-# Clip solar values below 0.5 MW to 0 (nighttime SCADA artifact)
+# Clip solar volume values below 0.5 MW to 0 (nighttime SCADA artifact)
 df_csd['solar_total'] = df_csd['solar_total'].clip(lower=0)
 df_csd.loc[df_csd['solar_total'] < 0.5, 'solar_total'] = 0.0
 
@@ -84,8 +103,8 @@ FINAL_COLS = [
     'datetime',
     'ACTUAL_POOL_PRICE',
     'ACTUAL_AIL',
-    'wind_total',
-    'solar_total',
+    *sorted(FUEL_TYPE_COLS.values()),
+    *sorted(FUEL_CAP_COLS.values()),
     'IMPORT_BC', 'IMPORT_MT', 'IMPORT_SK',
     'EXPORT_BC', 'EXPORT_MT', 'EXPORT_SK',
 ]
