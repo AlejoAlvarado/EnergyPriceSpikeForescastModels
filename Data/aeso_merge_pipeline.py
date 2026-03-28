@@ -197,6 +197,53 @@ df["day_of_week"] = df["datetime"].dt.dayofweek   # 0=Monday, 6=Sunday
 df["month"]       = df["datetime"].dt.month
 df["is_weekend"]  = (df["day_of_week"] >= 5).astype(int)
 
+# 11. Remove February 29 — standardises the yearly cycle to 365 days so that
+#     Fourier yearly features are consistent across all years in the dataset
+feb29_mask = (df["datetime"].dt.month == 2) & (df["datetime"].dt.day == 29)
+df = df[~feb29_mask]
+print(f"  Rows removed (Feb 29): {feb29_mask.sum()}")
+
+# 12. Fourier cyclical time features
+import numpy as np
+
+# Daily cycle: position within the 24-hour day
+df["sin_day"] = np.sin(2 * np.pi * df["hour_of_day"] / 24)
+df["cos_day"] = np.cos(2 * np.pi * df["hour_of_day"] / 24)
+
+# Weekly cycle: position within the 7-day week
+df["sin_week"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
+df["cos_week"] = np.cos(2 * np.pi * df["day_of_week"] / 7)
+
+# Yearly cycle with k=2 harmonics using a 365-day period
+# t = day of year (1–365); Feb 29 already removed so max is 365
+T = 365
+t = df["datetime"].dt.day_of_year
+# Adjust day-of-year for dates after Feb 28 in leap years (Feb 29 was removed,
+# so March 1 onwards would have been day 61 in a leap year — subtract 1 to keep
+# the 1–365 range contiguous)
+leap_year_after_feb = (
+    df["datetime"].dt.is_leap_year & (df["datetime"].dt.month >= 3)
+)
+t = t - leap_year_after_feb.astype(int)
+
+df["sin_year_1"] = np.sin(2 * np.pi * 1 * t / T)
+df["cos_year_1"] = np.cos(2 * np.pi * 1 * t / T)
+df["sin_year_2"] = np.sin(2 * np.pi * 2 * t / T)
+df["cos_year_2"] = np.cos(2 * np.pi * 2 * t / T)
+
+# 13. Calgary Stampede dummy variable
+STAMPEDE_RANGES = {
+    # 2020: cancelled (COVID-19) — no dates, column stays 0
+    2021: ("2021-07-09", "2021-07-18"),
+    2022: ("2022-07-08", "2022-07-17"),
+    2023: ("2023-07-07", "2023-07-16"),
+    2024: ("2024-07-05", "2024-07-14"),
+    2025: ("2025-07-04", "2025-07-13"),
+}
+df["is_stampede"] = 0
+for start, end in STAMPEDE_RANGES.values():
+    df.loc[df["datetime"].between(start, end), "is_stampede"] = 1
+
 # Drop edge rows where lead/lag windows are incomplete
 df = df.dropna(subset=["spike_lead_24", "spike_lag_24"])
 print(f"  Rows after feature engineering + edge trim: {len(df):,}")
