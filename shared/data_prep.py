@@ -34,7 +34,8 @@ PRICE_LAGS = ["price_lag_1h", "price_lag_6h", "price_lag_24h",
               "price_rolling_mean_6h"]
 
 # Columns that are never model inputs regardless of model type
-_EXCLUDE_ALWAYS = {"datetime"} | set(ALL_LEADS)
+_EXCLUDE_ALWAYS = {"datetime", "ACTUAL_POOL_PRICE", "actual_pool_price"} | set(ALL_LEADS)
+ 
 
 # Binary/dummy columns — standardised separately (kept as-is)
 DUMMY_COLS = frozenset({"spike", "is_weekend", "is_stampede"} | set(SPIKE_LAGS))
