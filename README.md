@@ -111,6 +111,7 @@ Coal, gas, dual fuel, hydro, wind, solar, energy storage, other — both total g
 All five notebooks are in `FINAL IPYNBS/` and are designed to run locally. They all read from `Data/CSVs/aeso_merged_2020_2025.csv` (one level up from the notebook folder, i.e. `../Data/CSVs/aeso_merged_2020_2025.csv`).
 
 ### 1. `EDA.ipynb` — Exploratory Data Analysis
+### 1. `EDA.ipynb` — Exploratory Data Analysis
 Explores the dataset before any modelling:
 - Pool price time series and monthly median trend
 - Price distribution and spike tail analysis
