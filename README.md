@@ -9,10 +9,11 @@ Predicting short-term electricity price spikes on the Alberta Electric System Op
 ```
 EnergyPriceSpikeForescastModels/
 ├── FINAL IPYNBS/                         # Submission notebooks
-│   ├── eda.ipynb                         # Exploratory data analysis
-│   ├── mlp_aeso_local_no_optuna.ipynb    # Multi-layer perceptron model
-│   ├── LSTM_F1_THRESHOLD TUNNING_MAX_50.ipynb  # LSTM model
-│   └── cnn_v2_colab_postrun.ipynb        # 1D CNN model
+│   ├── EDA.ipynb                         # Exploratory data analysis
+│   ├── MLP.ipynb                         # Multi-layer perceptron model
+│   ├── LSTM.ipynb                        # LSTM model
+│   ├── CNN.ipynb                         # 1D CNN model
+│   └── baseline_aeso.ipynb               # Simple baseline models (Naive, Seasonal, SARIMAX)
 ├── Data/
 │   ├── CSVs/
 │   │   ├── aeso_merged_2020_2025.csv              # Final merged dataset (pipeline output)
@@ -20,7 +21,7 @@ EnergyPriceSpikeForescastModels/
 │   │   └── CSD Generation (Hourly)*.csv           # One or more generation files
 │   └── aeso_merge_pipeline.py            # Script that builds aeso_merged_2020_2025.csv
 ├── shared/
-│   └── data_prep.py                      # Shared data loading & utilities (used by EDA and CNN)
+│   └── data_prep.py                      # Shared data loading & utilities (used by CNN, LSTM, MLP)
 └── requirements.txt
 ```
 
@@ -107,9 +108,9 @@ Coal, gas, dual fuel, hydro, wind, solar, energy storage, other — both total g
 
 ## Notebooks
 
-All four notebooks are in `FINAL IPYNBS/` and are designed to run locally. They all read from `Data/CSVs/aeso_merged_2020_2025.csv` (one level up from the notebook folder).
+All five notebooks are in `FINAL IPYNBS/` and are designed to run locally. They all read from `Data/CSVs/aeso_merged_2020_2025.csv` (one level up from the notebook folder, i.e. `../Data/CSVs/aeso_merged_2020_2025.csv`).
 
-### 1. `eda.ipynb` — Exploratory Data Analysis
+### 1. `EDA.ipynb` — Exploratory Data Analysis
 Explores the dataset before any modelling:
 - Pool price time series and monthly median trend
 - Price distribution and spike tail analysis
@@ -120,25 +121,35 @@ Explores the dataset before any modelling:
 - System condition comparisons: spike vs non-spike hours
 - Alberta Internal Load seasonality
 
-### 2. `mlp_aeso_local_no_optuna.ipynb` — Multi-Layer Perceptron
+### 2. `baseline_aeso.ipynb` — Baseline Models
+Establishes simple reference points before comparing neural-network performance:
+- **Naive**: predict future spike state from the current observed spike
+- **Seasonal naive (daily)**: predict from the same hour 24 hours ago
+- **Mean**: constant prediction using training-set spike rate
+- **SARIMAX + Fourier**: SARIMAX(3,1,1) walk-forward price forecast converted to a spike probability via a normal CDF
+- Threshold tuning on validation by F1; final evaluation on held-out test set
+- Outputs saved to `FINAL IPYNBS/baseline_run/` (CSV + JSON metrics)
+
+### 3. `MLP.ipynb` — Multi-Layer Perceptron
 Flat tabular model treating each hour independently:
 - Time-series cross-validation (5 folds) for hyperparameter selection via random search
 - Threshold tuning on validation set to maximise F1
 - Final evaluation on held-out test set with classification report and confusion matrix
 
-### 3. `LSTM_F1_THRESHOLD TUNNING_MAX_50.ipynb` — LSTM
+### 4. `LSTM.ipynb` — LSTM
 Sequence model using a sliding window of past hours:
 - LSTM captures temporal dependencies without manual lag features
 - Same random search + cross-validation structure as MLP
 - F2 score used for threshold tuning (emphasises recall over precision)
 - Windows-safe (`num_workers=0`)
 
-### 4. `cnn_v2_colab_postrun.ipynb` — 1D CNN
+### 5. `CNN.ipynb` — 1D CNN
 Convolutional model over sliding windows:
 - `CNN1D` architecture with `AdaptiveMaxPool1d` — lookback-length independent
 - `kernel_size` values of 7 and 12 capture multi-hour ramp patterns
 - CosineAnnealingLR scheduler with early stopping on validation F1
 - Threshold calibration on validation set before final test evaluation
+- Uses `shared/data_prep.py` for data loading (CNN and LSTM share this module)
 
 ---
 
@@ -152,6 +163,8 @@ matplotlib
 scikit-learn
 seaborn
 joblib
+scipy
+statsmodels
 ```
 
 Install with:
@@ -169,3 +182,4 @@ pip install -r requirements.txt
    python Data/aeso_merge_pipeline.py
    ```
 2. Open any notebook in `FINAL IPYNBS/` using Jupyter and run all cells top to bottom.
+3. Run notebooks in order for a complete walkthrough: `EDA` → `baseline_aeso` → `MLP` → `LSTM` → `CNN`.
