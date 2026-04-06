@@ -109,7 +109,7 @@ Coal, gas, dual fuel, hydro, wind, solar, energy storage, other — both total g
 
 All four notebooks are in `FINAL IPYNBS/` and are designed to run locally. They all read from `Data/CSVs/aeso_merged_2020_2025.csv` (one level up from the notebook folder).
 
-### 1. `eda.ipynb` — Exploratory Data Analysis
+### 1. `EDA.ipynb` — Exploratory Data Analysis
 Explores the dataset before any modelling:
 - Pool price time series and monthly median trend
 - Price distribution and spike tail analysis
@@ -120,20 +120,20 @@ Explores the dataset before any modelling:
 - System condition comparisons: spike vs non-spike hours
 - Alberta Internal Load seasonality
 
-### 2. `mlp_aeso_local_no_optuna.ipynb` — Multi-Layer Perceptron
+### 2. `MLP.ipynb` — Multi-Layer Perceptron
 Flat tabular model treating each hour independently:
 - Time-series cross-validation (5 folds) for hyperparameter selection via random search
 - Threshold tuning on validation set to maximise F1
 - Final evaluation on held-out test set with classification report and confusion matrix
 
-### 3. `LSTM_F1_THRESHOLD TUNNING_MAX_50.ipynb` — LSTM
+### 3. `LSTM.ipynb` — LSTM
 Sequence model using a sliding window of past hours:
 - LSTM captures temporal dependencies without manual lag features
 - Same random search + cross-validation structure as MLP
 - F2 score used for threshold tuning (emphasises recall over precision)
 - Windows-safe (`num_workers=0`)
 
-### 4. `cnn_v2_colab_postrun.ipynb` — 1D CNN
+### 4. `CNN.ipynb` — 1D CNN
 Convolutional model over sliding windows:
 - `CNN1D` architecture with `AdaptiveMaxPool1d` — lookback-length independent
 - `kernel_size` values of 7 and 12 capture multi-hour ramp patterns
