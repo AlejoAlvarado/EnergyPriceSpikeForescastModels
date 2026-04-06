@@ -1,0 +1,28 @@
+File 1 — Core file (AIL, price, wind, solar all in one)
+Go to this URL directly:
+https://www.aeso.ca/market/market-and-system-reporting/data-requests/hourly-ail-smp-wind-generation-and-solar-generation-data-for-2016-to-2020/
+On that page you'll find a download link for the CSV file titled "Hourly AIL, SMP, Wind Generation and Solar Generation Data for 2016 to 2020." Click it and it downloads immediately. This is your primary file — it has pool price, AIL, wind, and solar all in a single hourly CSV covering 5 years (~43,800 rows).
+
+File 2 — Extended pool price history (optional, for more training data)
+Go to:
+https://www.aeso.ca/market/market-and-system-reporting/data-requests/hourly-generation-metered-volumes-and-pool-price-and-ail-data-2001-to-july-2025/
+This file covers hourly metered volumes and pool price and AIL data from 2001 to 2024. AESO It gives you a much longer history which helps the model learn rare spike events. Download it the same way — direct link, no login.
+
+OPTION 3:
+https://aeso.app.box.com/s/qofgn9axnnw6uq3ip1goiq2ngb11txe5/folder/196178549071
+The Box page requires JavaScript to render so I can't browse the file listing directly, but based on what AESO describes on their website and what I know about this dataset, here's what it gives you:
+What the CSD Historical Generation Data contains:
+It's the same data that powers AESO's real-time Current Supply & Demand page, stored as CSV files organized by month or year. Each row is one time interval (hourly and 5-minute versions available) and each column is an individual generating unit. The key difference from your existing CSVs is that each unit comes with a fuel type label — so you can immediately filter for WIND and SOLAR rows and sum them to get province-wide totals per hour.
+The files cover approximately 2018 onward and are updated monthly, so you'd have coverage through early 2026 if needed.
+What you'd do with it for your project:
+python# Pseudocode of the workflow
+# 1. Download the hourly interval files from Box
+# 2. Filter rows where fuel_type == "WIND" → sum → wind_total per hour
+# 3. Filter rows where fuel_type == "SOLAR" → sum → solar_total per hour  
+# 4. Join with your existing CSV (which has pool price and AIL) on timestamp
+# 5. Now you have the same 6-column structure as your Excel file, but for 2020–2025
+My honest take on whether it's worth it:
+The 2020–2025 window is actually more interesting from a modeling perspective because solar became significant in Alberta after 2022 — the Travers Solar project (465 MW) came online in 2023 and was Canada's largest at the time. So your model would be trained on a period where both wind AND solar meaningfully affect prices, which makes the problem richer.
+The tradeoff is that you'd need to spend time downloading and restructuring the Box files. If your group has a member comfortable with Python data wrangling, it's probably a day's work. If not, stick with 2016–2020.
+Would you like me to look at what the actual file structure inside the Box folder looks like, or would you prefer to just go ahead with the 2016–2020 data and start on the modeling code?
+
