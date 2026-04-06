@@ -110,7 +110,7 @@ FIGURE_SPECS = [
     ),
     FigureSpec(
         key="model_results",
-        title="Validation and test performance reported by the source notebooks.",
+        title="Test performance comparison reported in Data607_EnergySpike_Presentation_v2.pptx.",
         filename="figure_4_model_results.png",
         note=(
             "Panel A compares the rounded test F1 values reported in the presentation deck. Panel B shows that "
@@ -388,7 +388,7 @@ def add_reference_paragraph(document: Document, text: str) -> None:
 
 
 def build_docx(report_text: dict[str, list[str]]) -> Path:
-    output_path = DOCX_DIR / "data607_project_report.docx"
+    output_path = DOCX_DIR / "data607_project_report_pptx_metrics.docx"
     doc = Document()
     configure_docx_styles(doc)
 
@@ -582,7 +582,7 @@ def pdf_page_number(canvas, doc) -> None:
 
 
 def build_pdf(report_text: dict[str, list[str]]) -> Path:
-    output_path = PDF_DIR / "data607_project_report.pdf"
+    output_path = PDF_DIR / "data607_project_report_pptx_metrics.pdf"
     styles = pdf_styles()
     doc = SimpleDocTemplate(
         str(output_path),
@@ -687,7 +687,7 @@ def build_pdf(report_text: dict[str, list[str]]) -> Path:
 
 
 def build_markdown(report_text: dict[str, list[str]]) -> Path:
-    output_path = REPORT_DIR / "data607_project_report.md"
+    output_path = REPORT_DIR / "data607_project_report_pptx_metrics.md"
     lines: list[str] = [
         f"# {TITLE}",
         "",
@@ -790,17 +790,19 @@ def build_report_text(df: pd.DataFrame) -> dict[str, list[str]]:
         "risk for market participants, which makes short-horizon spike prediction a relevant applied machine "
         "learning problem. This report evaluates whether publicly observable AESO market and generation data can "
         "classify whether the Alberta pool price will exceed CAD 200/MWh at t+2. Two public AESO datasets were "
-        "merged at the hourly level and transformed into a final modeling sample of 48,839 usable observations "
-        "covering January 2020 to July 2025. Exploratory analysis shows a heavy right tail in pool prices and a "
+        "merged at the hourly level into a file with 48,887 hourly observations covering January 2020 to July "
+        "2025, while the LSTM and CNN notebook variants operated on 48,839 rows after their preprocessing steps. "
+        "Exploratory analysis shows a heavy right tail in pool prices and a "
         "consistent scarcity signature: future spike hours are associated with higher current prices, higher net "
         "load, lower wind output, lower renewable share, and thinner reserve margins. Three neural-network "
         "classifiers were compared: a multilayer perceptron (MLP), a long short-term memory network (LSTM), and "
-        "a one-dimensional convolutional neural network (CNN). The final submission deck reports that the tuned "
-        "CNN achieved the strongest test performance (F1 = 0.475, ROC-AUC = 0.940), followed by the LSTM "
-        "(F1 = 0.411, ROC-AUC = 0.932), the MLP (F1 = 0.363, ROC-AUC = 0.9339), and a naive benchmark "
-        "(F1 = 0.384). The results indicate that sequence-aware neural architectures can improve short-horizon "
-        "spike classification, although the gains remain modest because the task is rare-event prediction in a "
-        "market whose structure changes over time."
+        "a one-dimensional convolutional neural network (CNN). Using the rounded metrics presented in "
+        "Data607_EnergySpike_Presentation_v2.pptx, the CNN achieved the strongest thresholded test performance "
+        "(F1 = 0.416, precision = 0.340, recall = 0.535, ROC-AUC = 0.941), followed by the LSTM "
+        "(F1 = 0.394, precision = 0.311, recall = 0.535, ROC-AUC = 0.945) and the MLP "
+        "(F1 = 0.363, precision = 0.275, recall = 0.535, ROC-AUC = 0.934). The results indicate that sequence-aware "
+        "neural architectures can improve short-horizon spike classification, although the gains remain modest "
+        "because the task is rare-event prediction in a market whose structure changes over time."
     )
 
     introduction = [
@@ -832,14 +834,13 @@ def build_report_text(df: pd.DataFrame) -> dict[str, list[str]]:
         "Because both sources are distributed publicly by AESO, the group had permission to use them for academic "
         "analysis under the operator's public reporting framework.",
         "The two datasets were aligned on a common hourly Mountain Prevailing Time axis, aggregated to the "
-        "province level where necessary, and then merged into a unified modeling table. The final presentation "
-        "summarizes 72 engineered features and no remaining missing values; the LSTM used 63 features because it "
-        "omitted manual lag variables that were redundant once sequence windows were introduced. The working "
-        "feature set combined current price and demand, fuel-type generation, system capability, import-export "
-        "flows, reserve-margin proxies, renewable shares, lagged information, and cyclical calendar encodings.",
-        "As the project evolved, the final presentation deck superseded some earlier notebook summaries. For that "
-        "reason, this report treats the submission deck as the authoritative source for the final tuned model "
-        "metrics, while the source CSV is used to regenerate descriptive figures and exploratory statistics."
+        "province level where necessary, and then merged into a unified modeling table. The merged AESO file used "
+        "for exploratory analysis contains 48,887 rows and 108 columns. The model notebooks then apply slightly "
+        "different preprocessing choices: the MLP notebook reports 59 features and retains 48,887 rows, whereas "
+        "the LSTM and CNN notebooks report 32 and 92 features respectively and operate on 48,839 rows.",
+        "To avoid another mismatch between exploratory material and the model write-up, this report uses the "
+        "presentation deck for the final rounded performance metrics and the notebooks for model-specific details "
+        "such as feature counts, selected thresholds, and pipeline row counts."
     ]
 
     yearly_text = ", ".join(f"{year} = {rate:.2f}%" for year, rate in yearly_rates.items())
@@ -875,49 +876,43 @@ def build_report_text(df: pd.DataFrame) -> dict[str, list[str]]:
         "All models were trained and evaluated with time-ordered data splits in order to avoid look-ahead bias. "
         "The final workflow used a chronological train-validation-test partition, coupled with TimeSeriesSplit "
         "cross-validation inside the pre-test horizon. Because spike hours are relatively rare, F1-score was used "
-        "as the primary metric, with ROC-AUC used as a secondary measure of ranking quality.",
-        "The MLP served as the simplest baseline. It consumed an engineered tabular feature vector for each hour "
-        "and relied on manually created lag terms to represent recent history. The final presentation reports that "
-        "a random hyperparameter search was used to tune layer width, dropout, and learning rate, but that the "
-        "model still generalized poorly out of sample.",
-        "The LSTM replaced manual temporal approximation with sequence modeling. Using a 24-hour lookback window, "
-        "it carried hidden state across the sequence and was then further improved through threshold calibration. "
-        "The final deck reports that this tuning increased test F1 to 0.411 and yielded recall of roughly 59%, "
-        "which implies that the LSTM became materially better at recovering true spike hours even if false alarms "
-        "remained a concern.",
-        "The CNN was designed to detect local spike fingerprints in recent sequences. The final presentation "
-        "describes three decisive refinements: lower and better-searched class weighting, wider temporal filters "
-        "that scanned longer pre-spike build-ups, and a stricter validation-based decision threshold of 0.9. "
-        "Those changes lifted CNN test F1 from 0.17 in the early run to 0.475 in the final tuned version."
+        "as the primary metric, with precision, recall, PR-AUC, and ROC-AUC used to qualify model behaviour.",
+        "The analytical storyline began with a simple MLP baseline. The MLP notebook used 59 tabular features, "
+        "selected a validation threshold of 0.91, and produced the weakest final F1 among the three models. This "
+        "baseline was important pedagogically because it established how much could be learned from a flat feature "
+        "vector before adding explicit temporal structure.",
+        "The LSTM and CNN then introduced sequence modelling. The LSTM notebook used 32 features, removed manual "
+        "lag variables that were redundant in a recurrent architecture, and selected a validation threshold of 0.94. "
+        "The CNN notebook used 92 features with a 24-hour lookback window, selected a validation threshold of 0.77, "
+        "and treated convolutional filters as detectors of local pre-spike patterns.",
+        "In practical terms, the main comparison in the project is therefore not between a naive heuristic and the "
+        "final CNN, but between a simple MLP baseline and temporally structured neural models, especially the CNN."
     ]
 
     results = [
-        "The final submission deck identifies the CNN as the strongest model overall. Its tuned test F1 of 0.475 "
-        "is the best result in the project and exceeds both the LSTM (0.411) and the MLP (0.363). Importantly, "
-        "it also improves on the naive benchmark reported in the presentation (0.384), even though that gain is "
-        "still modest in absolute terms.",
-        "The ranking metrics tell a subtler story. All three neural networks achieve high ROC-AUC values above "
-        "0.93, which means that they distinguish risky hours from ordinary hours reasonably well before a hard "
-        "classification threshold is applied. Yet the thresholded F1-scores are much lower, especially for the "
-        "MLP. This gap shows that the main difficulty is not only ranking spike risk but also choosing a threshold "
-        "that balances missed spikes against excessive false alarms in a highly imbalanced environment.",
-        "From an interpretive standpoint, the project supports three substantive conclusions. First, local temporal "
-        "patterns matter: the CNN's advantage suggests that short-run ramp structures are more informative than "
-        "longer-memory dynamics or purely flat snapshots. Second, renewables and reserve conditions matter: both "
-        "the exploratory tables and the feature-importance slide indicate that current price, wind output, solar "
-        "output, and system-stress indicators are central to spike risk. Third, rare-event prediction remains hard: "
-        "even the best architecture only modestly outperforms a simple baseline, which is consistent with the deck's "
-        "own conclusion that richer temporal structure helps, but does not solve the problem outright."
+        "Using the rounded values shown in the presentation deck, test F1 rises monotonically from the simple MLP "
+        "(0.363) to the LSTM (0.394) and then to the CNN (0.416). That progression supports the core modelling "
+        "claim of the project: adding temporal structure helps, and the CNN is the strongest of the three final "
+        "models on the thresholded spike-classification task.",
+        "The improvement is driven more by precision than by recall. The deck reports essentially the same recall "
+        "for all three neural models, approximately 0.535, while precision improves from 0.275 for the MLP to "
+        "0.311 for the LSTM and 0.340 for the CNN. In operational terms, the sequence-aware models do not capture "
+        "more spikes than the baseline; rather, they issue fewer false alarms while preserving the same hit rate.",
+        "ROC-AUC values remain high across the three models, with 0.934 for the MLP, 0.945 for the LSTM, and 0.941 "
+        "for the CNN. This pattern is instructive. The LSTM slightly outperforms the CNN as a ranker of spike risk, "
+        "but the CNN achieves the best thresholded F1 once the decision rule is fixed. That distinction is important "
+        "because the project's applied objective is not just ranking hours by risk, but making a usable classification "
+        "decision under class imbalance."
     ]
 
     conclusion = [
         "This project shows that publicly available AESO data contain meaningful information about short-horizon "
         "electricity price spike risk in Alberta. The formal comparison across an MLP, an LSTM, and a CNN shows "
-        "that sequence-aware neural models are preferable to a flat baseline, with the tuned CNN emerging as the "
-        "best overall specification in the final submission.",
+        "that temporally structured neural models are preferable to a simple tabular baseline, with the CNN emerging "
+        "as the best overall model on the final thresholded F1 metric reported in the presentation.",
         "At the same time, the results should be interpreted carefully. The sample exhibits pronounced class "
-        "imbalance, the market changed materially over the 2020-2025 period, and the final gains over a naive "
-        "benchmark remain limited. Future work should therefore extend the predictor set with weather forecasts, "
+        "imbalance, the market changed materially over the 2020-2025 period, and the final gains over the MLP "
+        "baseline remain limited in absolute terms. Future work should therefore extend the predictor set with weather forecasts, "
         "outage information, and offer-stack or merit-order variables, while also evaluating longer forecast "
         "horizons and cost-sensitive thresholds that better reflect operational priorities."
     ]
